@@ -1431,7 +1431,7 @@ cmrc_add_resource_library(embedded-resources
         src/resources/bronze.png
         src/resources/gold.png
         src/resources/platinum.png
-        src/resources/nvds4.png
+        src/resources/shadps4.png
         src/resources/silver.png
         src/resources/trophy.wav)
 target_link_libraries(nvds4 PRIVATE res::embedded)
