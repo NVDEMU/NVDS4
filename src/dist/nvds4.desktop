@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=NVDS4
+Exec=nvds4
+Terminal=false
+Type=Application
+Icon=nvds4
+Comment=PlayStation 4 emulator
+Categories=Game;Emulator;
+StartupWMClass=nvds4;
