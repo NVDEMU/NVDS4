@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 <h1 align="center">
   <br>
-  <a href="https://github.com/NVDEMU/NVDS4"><img src="https://raw.githubusercontent.com/NVDEMU/nvd123-ps5/main/assets/images/logo.png" width="220"></a>
+  <a href="https://github.com/NVDEMU/NVDS4"><img src="./assets/nvds4-logo.svg" width="220" alt="NVDS4"></a>
   <br>
   <b>NVDS4</b>
   <br>
