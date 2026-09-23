@@ -1301,6 +1301,9 @@ else()
 endif()
 
 target_compile_definitions(nvds4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
+if (ENABLE_UPDATER)
+    target_compile_definitions(nvds4 PRIVATE ENABLE_UPDATER=1)
+endif()
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
 
 if (ENABLE_DISCORD_RPC)
