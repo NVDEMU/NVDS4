@@ -1,3 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <image href="https://raw.githubusercontent.com/NVDEMU/nvd123-ps5/main/assets/images/logo.png" x="0" y="0" width="512" height="512"/>
+<!--
+SPDX-FileCopyrightText: 2026 NVDS4 Emulator Project
+SPDX-License-Identifier: GPL-2.0-or-later
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="NVDS4 logo">
+  <rect width="512" height="512" rx="96" fill="#111318"/>
+  <path d="M72 368V144h52l116 145V144h52v224h-52L124 223v145H72Zm236 0 50-224h54l-50 224h-54Z" fill="#fff"/>
+  <path d="M318 144h88v42h-88z" fill="#6ea8fe"/>
+  <text x="256" y="430" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="700" fill="#6ea8fe">NVDS4</text>
 </svg>
