@@ -14,6 +14,7 @@
 #include "common/logging/log.h"
 #include "common/memory_patcher.h"
 #include "common/path_util.h"
+#include "common/updater.h"
 #include "core/debugger.h"
 #include "core/emulator_settings.h"
 #include "core/emulator_state.h"
@@ -64,6 +65,8 @@ int main(int argc, char* argv[]) {
     bool configGlobal = false;
     bool bigPicture = false;
     bool sameProcess = false;
+    bool checkUpdates = false;
+    bool applyUpdate = false;
 
     std::optional<std::filesystem::path> addGameFolder;
     std::optional<std::filesystem::path> setAddonFolder;
@@ -82,6 +85,8 @@ int main(int argc, char* argv[]) {
     app.add_flag("-b,--big-picture", bigPicture, "Start in Big Picture Mode");
     app.add_flag("--same-process", sameProcess,
                  "Launch the game in the same process when using Big Picture Mode");
+    app.add_flag("--check-updates", checkUpdates, "Check NVDS4 for updates");
+    app.add_flag("--update", applyUpdate, "Open the latest NVDS4 update for this platform");
 
     app.add_option("-f,--fullscreen", fullscreenStr, "Fullscreen mode (true|false)");
 
@@ -171,6 +176,26 @@ int main(int argc, char* argv[]) {
         BigPictureMode::Launch(argv[0], sameProcess);
         return 0;
     }
+
+    // ---- NVDS4 updater ----
+#if defined(ENABLE_UPDATER)
+    if (checkUpdates || applyUpdate) {
+        const auto update = Common::Updater::CheckForUpdate();
+        if (!update.available) {
+            std::cout << "NVDS4 is up to date, or the NVDS4 nightly release is unavailable." << std::endl;
+            return 0;
+        }
+        std::cout << "NVDS4 update available: " << update.remote_commit << std::endl;
+        if (applyUpdate) {
+            if (!Common::Updater::OpenLatestDownload(update)) {
+                std::cerr << "Failed to open the NVDS4 update." << std::endl;
+                return 1;
+            }
+            std::cout << "Opened the NVDS4 update download." << std::endl;
+        }
+        return 0;
+    }
+#endif
 
     // ---- Utility commands ----
     if (addGameFolder) {
