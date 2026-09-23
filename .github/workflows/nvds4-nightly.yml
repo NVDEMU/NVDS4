@@ -1,0 +1,173 @@
+name: NVDS4 Nightly Releases
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nvds4-nightly
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-2025-vs2026
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_C_COMPILER=clang-cl \
+            -DCMAKE_CXX_COMPILER=clang-cl \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_UPDATER=ON
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config ${BUILD_TYPE} --parallel
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item build/nvds4.exe dist/nvds4.exe
+          Compress-Archive -Path dist/nvds4.exe -DestinationPath NVDS4-windows-x64.zip -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: NVDS4-windows-x64
+          path: NVDS4-windows-x64.zip
+
+  macos:
+    name: macOS Intel x64
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install cmake meson pkg-config llvm spirv-tools spirv-llvm-translator
+          pip3 install --break-system-packages mako packaging pyyaml
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_UPDATER=ON
+
+      - name: Build
+        run: cmake --build build --config ${BUILD_TYPE} --parallel $(sysctl -n hw.ncpu)
+
+      - name: Package
+        run: |
+          mkdir -p dist/NVDS4.app-content
+          cp build/nvds4 dist/NVDS4.app-content/
+          cp build/libvulkan.dylib dist/NVDS4.app-content/ || true
+          cp build/libvulkan_kosmickrisp.dylib dist/NVDS4.app-content/ || true
+          cp build/kosmickrisp_mesa_icd.json dist/NVDS4.app-content/ || true
+          tar -czf NVDS4-macos-x86_64.tar.gz -C dist/NVDS4.app-content .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: NVDS4-macos-x86_64
+          path: NVDS4-macos-x86_64.tar.gz
+
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Add LLVM repository
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt install -y \
+            libx11-dev libxext-dev libwayland-dev libdecor-0-dev libxkbcommon-dev \
+            libglfw3-dev libgles2-mesa-dev libfuse2 clang-19 mold build-essential \
+            libasound2-dev libpulse-dev libopenal-dev libudev-dev libxcursor-dev \
+            libxi-dev libxss-dev libxtst-dev
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON \
+            -DCMAKE_C_COMPILER=clang-19 \
+            -DCMAKE_CXX_COMPILER=clang++-19 \
+            -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=mold" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=mold" \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_UPDATER=ON
+
+      - name: Build
+        run: cmake --build build --config ${BUILD_TYPE} --parallel $(nproc)
+
+      - name: Package
+        run: tar -czf NVDS4-linux-x64.tar.gz -C build nvds4
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: NVDS4-linux-x64
+          path: NVDS4-linux-x64.tar.gz
+
+  release:
+    name: Publish NVDS4 Nightly
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Publish moving nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="nightly"
+          SHORT_SHA="$(git rev-parse --short=12 HEAD)"
+          DATE="$(date -u +'%Y-%m-%d %H:%M UTC')"
+
+          gh release delete "${TAG}" --yes --cleanup-tag || true
+          gh release create "${TAG}" \
+            artifacts/NVDS4-windows-x64/NVDS4-windows-x64.zip \
+            artifacts/NVDS4-macos-x86_64/NVDS4-macos-x86_64.tar.gz \
+            artifacts/NVDS4-linux-x64/NVDS4-linux-x64.tar.gz \
+            --target "${GITHUB_SHA}" \
+            --title "NVDS4 Nightly ${DATE}" \
+            --notes "Automated NVDS4 build from commit ${GITHUB_SHA} (${SHORT_SHA})." \
+            --latest
