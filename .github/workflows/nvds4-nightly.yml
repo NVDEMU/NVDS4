@@ -54,7 +54,9 @@ jobs:
           pip3 install --break-system-packages mako packaging pyyaml
       - name: Configure
         run: |
-          cmake -S . -B build             -DCMAKE_BUILD_TYPE=$BUILD_TYPE             -DCMAKE_OSX_ARCHITECTURES=arm64             -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON             -DENABLE_TESTS=OFF             -DENABLE_UPDATER=ON
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DCMAKE_OSX_ARCHITECTURES=arm64             -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON             -DENABLE_TESTS=OFF             -DENABLE_UPDATER=ON
       - name: Build
         run: cmake --build build --config $BUILD_TYPE --parallel $(sysctl -n hw.ncpu)
       - name: Package .app and DMG
@@ -64,7 +66,7 @@ jobs:
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp build/nvds4 "$APP/Contents/MacOS/nvds4"
           chmod +x "$APP/Contents/MacOS/nvds4"
-          cp build/src/dist/Info.plist "$APP/Contents/Info.plist"
+          sed -e 's|\$\{APP_VERSION\}|0.18.1 Nightly|g' -e 's|\$\{APP_VERSION_NUM\}|0.18.1|g' -e 's|\$\{CMAKE_OSX_DEPLOYMENT_TARGET\}|26.0|g' src/dist/MacOSBundleInfo.plist.in > "$APP/Contents/Info.plist"
           cp build/libvulkan.dylib "$APP/Contents/MacOS/" || true
           cp build/libvulkan_kosmickrisp.dylib "$APP/Contents/MacOS/" || true
           cp build/kosmickrisp_mesa_icd.json "$APP/Contents/Resources/" || true
@@ -120,4 +122,11 @@ jobs:
           SHORT_SHA="$(git rev-parse --short=12 HEAD)"
           DATE="$(date -u +'%Y-%m-%d %H:%M UTC')"
           gh release delete "$TAG" --yes --cleanup-tag || true
-          gh release create "$TAG"             artifacts/NVDS4-windows-x64/NVDS4-windows-x64.zip             artifacts/NVDS4-macos-arm64/NVDS4-macos-arm64.dmg             artifacts/NVDS4-linux-x64/NVDS4-linux-x64.tar.gz             --target "${GITHUB_SHA}"             --title "NVDS4 Nightly $DATE"             --notes "Automated NVDS4 build from commit ${GITHUB_SHA} (${SHORT_SHA})."             --latest
+          gh release create "$TAG" \
+            artifacts/NVDS4-windows-x64/NVDS4-windows-x64.zip \
+            artifacts/NVDS4-macos-arm64/NVDS4-macos-arm64.dmg \
+            artifacts/NVDS4-linux-x64/NVDS4-linux-x64.tar.gz \
+            --target "${GITHUB_SHA}" \
+            --title "NVDS4 Nightly $DATE" \
+            --notes "Automated NVDS4 build from commit ${GITHUB_SHA} (${SHORT_SHA})." \
+            --latest
