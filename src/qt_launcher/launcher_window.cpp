@@ -21,6 +21,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPainter>
+#include <QPixmap>
 #include <QProcess>
 #include <QPushButton>
 #include <QSettings>
