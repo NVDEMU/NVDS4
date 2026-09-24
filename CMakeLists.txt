@@ -38,7 +38,8 @@ cmake_dependent_option(ENABLE_SYSTEM_VULKAN "Enable the system Vulkan driver" OF
 
 option(ENABLE_DISCORD_RPC "Enable the Discord RPC integration" ON)
 option(ENABLE_UPDATER "Enables the options to updater" ON)
-option(ENABLE_TESTS "Build unit tests (requires GTest)" OFF)
+option(ENABLE_QT_LAUNCHER "Build the NVDS4 Qt desktop launcher" ON)
+option(ENABLE_TESTS "Build unit tests (requires GTest)" OFF
 option(ENABLE_SYSTEM_LIBRARIES "Enable building against system libraries" OFF)
 
 # First, determine whether to use CMAKE_OSX_ARCHITECTURES or CMAKE_SYSTEM_PROCESSOR.
@@ -1460,6 +1461,26 @@ endif()
 
 # Install rules
 install(TARGETS nvds4 BUNDLE DESTINATION .)
+
+if (ENABLE_QT_LAUNCHER)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets)
+    qt_standard_project_setup()
+
+    qt_add_executable(nvds4-launcher
+        src/qt_launcher/main.cpp
+        src/qt_launcher/launcher_window.cpp
+        src/qt_launcher/launcher_window.h
+    )
+
+    target_link_libraries(nvds4-launcher PRIVATE Qt6::Widgets)
+    target_include_directories(nvds4-launcher PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    set_target_properties(nvds4-launcher PROPERTIES
+        WIN32_EXECUTABLE ON
+        OUTPUT_NAME "nvds4-launcher"
+    )
+
+    install(TARGETS nvds4-launcher RUNTIME DESTINATION . BUNDLE DESTINATION .)
+endif()
 
 else()
     enable_testing()
