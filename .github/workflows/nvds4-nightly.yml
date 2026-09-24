@@ -86,6 +86,13 @@ jobs:
           cp build/libvulkan.dylib "$APP/Contents/MacOS/" || true
           cp build/libvulkan_kosmickrisp.dylib "$APP/Contents/MacOS/" || true
           cp build/kosmickrisp_mesa_icd.json "$APP/Contents/Resources/" || true
+
+          # The CMake build tree is very large on macOS. Remove it before
+          # hdiutil creates its temporary compressed image, otherwise the
+          # runner can exhaust its disk even though the final app is small.
+          rm -rf build
+          df -h .
+
           codesign --force --deep --sign - "$APP"
           hdiutil create -volname "NVDS4" -srcfolder "$APP" -ov -format UDZO "NVDS4-macos-arm64.dmg"
       - uses: actions/upload-artifact@v7
