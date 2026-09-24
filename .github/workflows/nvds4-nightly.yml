@@ -82,8 +82,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install cmake meson pkg-config llvm spirv-tools spirv-llvm-translator ninja
-          pip3 install --break-system-packages mako packaging pyyaml
+          brew install cmake meson pkg-config llvm spirv-tools spirv-llvm-translator ninja python
+          PYTHON3="$(brew --prefix python)/bin/python3"
+          "$PYTHON3" -m pip install --break-system-packages mako packaging pyyaml
+          echo "$(brew --prefix python)/bin" >> "$GITHUB_PATH"
+          echo "PYTHON=$PYTHON3" >> "$GITHUB_ENV"
+          SITE_PACKAGES="$("$PYTHON3" -c 'import site; print(site.getsitepackages()[0])')"
+          echo "PYTHONPATH=$SITE_PACKAGES" >> "$GITHUB_ENV"
 
       - name: Setup Qt
         uses: jurplel/install-qt-action@v4
