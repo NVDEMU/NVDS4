@@ -23,10 +23,24 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+      - name: Setup Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.10.0
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          archives: qtbase qttools
+      - name: Cache CMake build
+        uses: hendrikmuhs/ccache-action@v1.2.24
+        with:
+          append-timestamp: false
+          key: windows-nvds4
+          max-size: 5G
       - name: Configure
         shell: bash
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DENABLE_TESTS=OFF -DENABLE_UPDATER=ON
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DENABLE_TESTS=OFF -DENABLE_UPDATER=ON -DENABLE_QT_LAUNCHER=ON
       - name: Build
         shell: bash
         run: cmake --build build --config $BUILD_TYPE --parallel
@@ -35,7 +49,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item build/nvds4.exe dist/nvds4.exe
-          Compress-Archive -Path dist/nvds4.exe -DestinationPath NVDS4-windows-x64.zip -Force
+          Copy-Item build/nvds4-launcher.exe dist/nvds4-launcher.exe
+          windeployqt --release --no-translations --dir dist dist/nvds4-launcher.exe
+          Compress-Archive -Path dist/* -DestinationPath NVDS4-windows-x64.zip -Force
       - uses: actions/upload-artifact@v7
         with:
           name: NVDS4-windows-x64
@@ -50,8 +66,37 @@ jobs:
           submodules: recursive
       - name: Install dependencies
         run: |
-          brew install cmake meson pkg-config llvm spirv-tools spirv-llvm-translator
+          brew install cmake meson pkg-config llvm spirv-tools spirv-llvm-translator ninja
           pip3 install --break-system-packages mako packaging pyyaml
+      - name: Setup Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.10.0
+          host: mac
+          target: desktop
+          arch: clang_64
+          archives: qtbase qttools
+      - name: Cache CMake build
+        uses: hendrikmuhs/ccache-action@v1.2.24
+        with:
+          append-timestamp: false
+          create-symlink: true
+          key: macos-nvds4
+          max-size: 5G
+          variant: sccache
+      - name: Setup Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.10.0
+          arch: linux_gcc_64
+          setup-python: false
+          cache: true
+      - name: Cache CMake build
+        uses: hendrikmuhs/ccache-action@v1.2.24
+        with:
+          append-timestamp: false
+          key: linux-nvds4
+          max-size: 5G
       - name: Configure
         run: |
           cmake -S . -B build \
@@ -67,16 +112,17 @@ jobs:
           set -euo pipefail
           APP="dist/NVDS4.app"
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp build/nvds4-launcher "$APP/Contents/MacOS/nvds4-launcher"
           cp build/nvds4 "$APP/Contents/MacOS/nvds4"
-          chmod +x "$APP/Contents/MacOS/nvds4"
+          chmod +x "$APP/Contents/MacOS/nvds4-launcher" "$APP/Contents/MacOS/nvds4"
           python3 - <<'PY'
           from pathlib import Path
 
-          template = Path("src/dist/MacOSBundleInfo.plist.in").read_text()
+          template = Path("src/dist/NVDS4LauncherInfo.plist.in").read_text()
           replacements = {
-              "${APP_VERSION}": "0.18.1 Nightly",
-              "${APP_VERSION_NUM}": "0.18.1",
-              "${CMAKE_OSX_DEPLOYMENT_TARGET}": "26.0",
+              "__APP_VERSION__": "0.18.1 Nightly",
+              "__APP_VERSION_NUM__": "0.18.1",
+              "__MACOS_DEPLOYMENT_TARGET__": "26.0",
           }
           for key, value in replacements.items():
               template = template.replace(key, value)
@@ -87,9 +133,10 @@ jobs:
           cp build/libvulkan_kosmickrisp.dylib "$APP/Contents/MacOS/" || true
           cp build/kosmickrisp_mesa_icd.json "$APP/Contents/Resources/" || true
 
+          macdeployqt "$APP"
+
           # The CMake build tree is very large on macOS. Remove it before
-          # hdiutil creates its temporary compressed image, otherwise the
-          # runner can exhaust its disk even though the final app is small.
+          # hdiutil creates its temporary compressed image.
           rm -rf build
           df -h .
 
@@ -129,7 +176,11 @@ jobs:
       - name: Build
         run: cmake --build build --config $BUILD_TYPE --parallel $(nproc)
       - name: Package
-        run: tar -czf NVDS4-linux-x64.tar.gz -C build nvds4
+        run: |
+          mkdir -p dist
+          cp build/nvds4 dist/nvds4
+          cp build/nvds4-launcher dist/nvds4-launcher
+          tar -czf NVDS4-linux-x64.tar.gz -C dist nvds4 nvds4-launcher
       - uses: actions/upload-artifact@v7
         with:
           name: NVDS4-linux-x64
