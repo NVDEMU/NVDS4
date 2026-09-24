@@ -12,6 +12,8 @@
 #include <QDialog>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFont>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QInputDialog>
