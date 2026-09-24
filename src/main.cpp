@@ -112,8 +112,17 @@ int main(int argc, char* argv[]) {
     // ---- Capture args after `--` verbatim ----
     app.allow_extras();
 
-    // ---- No-args behavior ----
+    bool macAppBundleLaunch = false;
+#if defined(__APPLE__)
     if (argc == 1) {
+        const std::string executable_path = argv[0] ? argv[0] : "";
+        macAppBundleLaunch =
+            executable_path.find(".app/Contents/MacOS/") != std::string::npos;
+    }
+#endif
+
+    // ---- No-args behavior ----
+    if (argc == 1 && !macAppBundleLaunch) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "shadPS4",
                                  "This is a CLI application. Please use the '-b' flag for Big "
                                  "Picture mode, or QTLauncher for a standalone GUI:\n"
@@ -171,6 +180,15 @@ int main(int argc, char* argv[]) {
 
     // Configure logger appropriately
     Common::Log::g_should_append |= EmulatorSettings.IsLogAppend();
+
+#if defined(__APPLE__)
+    // Finder launches the bundled executable without arguments. Treat that as
+    // a request for the in-process Big Picture GUI instead of the CLI-only path.
+    if (macAppBundleLaunch) {
+        BigPictureMode::Launch(argv[0], false);
+        return 0;
+    }
+#endif
 
     if (bigPicture) {
         BigPictureMode::Launch(argv[0], sameProcess);
