@@ -966,6 +966,12 @@ if (ARCHITECTURE STREQUAL "x86_64")
              src/core/cpu_patches.cpp
              src/core/cpu_patches.h
              ${FIBER_LIB})
+elseif (ARCHITECTURE STREQUAL "arm64")
+    # The guest red-zone patcher emits x86-64 code and cannot be compiled for
+    # native ARM64 hosts. Keep the public API available with a no-op backend.
+    set(CORE ${CORE}
+             src/core/cpu_patches_arm64.cpp
+             src/core/cpu_patches.h)
 endif()
 
 set(SHADER_RECOMPILER src/shader_recompiler/profile.h
