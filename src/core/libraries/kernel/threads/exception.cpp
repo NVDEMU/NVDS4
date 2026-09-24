@@ -96,6 +96,21 @@ Ucontext::Ucontext(siginfo_t const* inf, ucontext_t* raw_context) {
     uc_mcontext.mc_rip = regs[REG_RIP];
     uc_mcontext.mc_addr = reinterpret_cast<uint64_t>(inf->si_addr);
 #endif
+#elif defined(ARCH_ARM64)
+    // Native Apple Silicon/Linux ARM64 builds use an ARM host context while the
+    // emulated process context is x86-64. There is no 1:1 register mapping.
+    // Preserve the host fault location so exception callbacks still receive a
+    // meaningful context and avoid making ARM64 builds fail at compile time.
+#ifdef __APPLE__
+    const auto& regs = raw_context->uc_mcontext->__ss;
+    uc_mcontext.mc_rip = regs.__pc;
+    uc_mcontext.mc_rsp = regs.__sp;
+#else
+    const auto& regs = raw_context->uc_mcontext;
+    uc_mcontext.mc_rip = regs.pc;
+    uc_mcontext.mc_rsp = regs.sp;
+#endif
+    uc_mcontext.mc_addr = reinterpret_cast<uint64_t>(inf->si_addr);
 #else
 #error "ucontext_t conversion not implemented for current architecture."
 #endif
@@ -218,6 +233,20 @@ void Ucontext::SyncHostFromGuest() {
     // regs[REG_CSGSFS] |= (greg_t{uc_mcontext.mc_fs} << 32);
     // regs[REG_CSGSFS] |= (greg_t{uc_mcontext.mc_gs} << 16);
     regs[REG_RIP] = uc_mcontext.mc_rip;
+#endif
+#elif defined(ARCH_ARM64)
+    // ARM64 host contexts cannot be populated from the x86-64 guest register
+    // layout without a full guest/host context translation layer. Keep the
+    // native signal context unchanged; the guest RIP/RSP are retained for
+    // diagnostics only.
+#ifdef __APPLE__
+    auto& regs = host_context->uc_mcontext->__ss;
+    regs.__pc = uc_mcontext.mc_rip;
+    regs.__sp = uc_mcontext.mc_rsp;
+#else
+    auto& regs = host_context->uc_mcontext;
+    regs.pc = uc_mcontext.mc_rip;
+    regs.sp = uc_mcontext.mc_rsp;
 #endif
 #else
 #error "ucontext_t conversion not implemented for current architecture."
